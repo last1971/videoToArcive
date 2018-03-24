@@ -92,6 +92,7 @@ namespace videoToArcive
                 Thread.Sleep(1000);
                 IntPtr h1 = (IntPtr)0;
                 string caption = "";
+                int id = 0;
                 //List<int> dir = new List<int> { 0x2E, 0x43, };
                 foreach (System.Diagnostics.Process anti in System.Diagnostics.Process.GetProcesses()) // перебираем все процесы
                 {
@@ -99,6 +100,7 @@ namespace videoToArcive
                     {
                         h1 = anti.MainWindowHandle;
                         caption = anti.MainWindowTitle;
+                        id = anti.Id;
                     }
                 }
                 if (h1!=null)
@@ -114,9 +116,8 @@ namespace videoToArcive
                     SendMessage(h2, WM_SETTEXT, 0, @"C:\temp\");
                     Thread.Sleep(500);
                     PostMessage(h2, WM_KEYDOWN, 13, 0);
-                    Thread.Sleep(1000);
-
-
+                    Thread.Sleep(2000);
+                    
                     AutomationElement el = AutomationElement.FromHandle(h4);
 
                     // Walk the automation element tree using content view, so we only see
@@ -124,6 +125,7 @@ namespace videoToArcive
                     // want to traverse those also.)
                     TreeWalker walker = TreeWalker.ContentViewWalker;
                     int i = 0;
+                    Boolean flag = false;
                     for (AutomationElement child = walker.GetFirstChild(el);
                         child != null;
                         child = walker.GetNextSibling(child))
@@ -132,46 +134,37 @@ namespace videoToArcive
                         if (child.Current.Name == "video.mp4")
                         {
                             SelectListItem(child);
-                            Console.WriteLine("item {0} is a \"{1}\" with name \"{2}\"", i++, child.Current.LocalizedControlType, child.Current.Name);
+                            flag = true;
                             break;
                         }
                     }
-
-
-
-
-
-
-
-
-
-                    int count = SendMessage(h4, LVM_GETITEMCOUNT, 0, "0");
-                    int hz = 0;
-                    GetWindowThreadProcessId(h4, out hz);
-                    IntPtr hProcess = OpenProcess(PROCESS_VM_WRITE | PROCESS_VM_OPERATION, true, hz);
+                    if (flag)
+                    {
+                        h2 = FindWindowEx(h1, new IntPtr(0), "ToolbarWindow32", "");
+                        el = AutomationElement.FromHandle(h2);
+                        AutomationElement child = walker.GetFirstChild(el);
+                        InvokePattern ptrnServiceRequestTab = child.GetCurrentPattern(InvokePattern.Pattern) as InvokePattern;
+                        ptrnServiceRequestTab.Invoke();
+                        Thread.Sleep(1000);
+                        h2 = FindWindow("#32770", "Добавить к архиву");
+                        h3 = FindWindowEx(h2, new IntPtr(0), "ComboBox", "");
+                        h4 = FindWindowEx(h3, new IntPtr(0), "Edit", "");
+                        SendMessage(h4, WM_SETTEXT, 0, "архив.zip");
+                        h4 = FindWindowEx(h2, h3, "ComboBox", "");
+                        PostMessage(h4, WM_KEYDOWN, 90, 0);
+                        Thread.Sleep(1000);
+                        h3 = FindWindowEx(h2, new IntPtr(0), "Button", "OK");
+                        PostMessage(h3, WM_KEYDOWN, 13, 0);
+                        Console.WriteLine("Архив создан");
+                        Thread.Sleep(2000);
+                        Process Id = Process.GetProcessById(id);
+                        Id.Kill();
+                    }
+                    else
+                    {
+                        Console.WriteLine("Not find video.mp4");
+                    }
                     
-                    LVITEM lvi = new LVITEM();
-                    lvi.mask = LVIF_TEXT;
-                    lvi.cchTextMax = 512;
-                    lvi.iItem = 0;            // the zero-based index of the ListView item 
-                    lvi.iSubItem = 0;
-                    //lvi.pszText = Marshal.AllocHGlobal(255);
-                   
-                    int cdWrite = 0;
-                    byte[] managedArray = new byte[Marshal.SizeOf(lvi)];
-                    IntPtr ptrLvi = Marshal.AllocHGlobal(Marshal.SizeOf(lvi));
-                    //Marshal.StructureToPtr(lvi, ptrLvi, false);
-                    Marshal.Copy(ptrLvi, managedArray, 0, Marshal.SizeOf(lvi));
-                    IntPtr lpMem = VirtualAllocEx(hProcess, new IntPtr(0), (uint)Marshal.SizeOf(lvi), MEM_COMMIT, PAGE_READWRITE);
-                    IntPtr text = VirtualAllocEx(hProcess, new IntPtr(0), 512, MEM_COMMIT, PAGE_READWRITE);
-                    lvi.pszText = text;
-                    WriteProcessMemory(hProcess, lpMem, managedArray, Marshal.SizeOf(lvi), ref cdWrite);
-                    SendMessageA(h4, LVM_GETITEM, 0, lpMem);  // Extract the text of the specified item 
-                    int bytesRead = 0;
-                    byte[] buffer = new byte[512]; //'Hello World!' takes 12*2 bytes because of Unicode 
-                    ReadProcessMemory(hProcess, text, buffer, buffer.Length, ref bytesRead);
-                    string a = Marshal.PtrToStringUni(text, 512);
-                    //string itemText = Marshal.PtrToStringAuto(lvi.pszText);
                 }
                 else
                 {
